@@ -23,7 +23,6 @@ if (isset($_POST["kaydet"])) {
         </div>';
     }
 
-    mysqli_close($baglanti);
 }
 
 if (isset($_POST["login"])) {
@@ -87,30 +86,43 @@ if (isset($_POST["addWord"])) {
 }
 
 if (isset($_GET['arama'])) {
-    $aramaKelime = mysqli_real_escape_string($baglanti, $_GET['arama']);
+    $aramaKelime = $_GET['arama'];
+    $aramaSayisiSorgu = "SELECT * FROM arama_sayilari WHERE kelime_id IN (SELECT k_id FROM kelime WHERE k_tanim_id = ?)";
+    $stmt = $baglanti->prepare($aramaSayisiSorgu);
+    $stmt->bind_param("s", $aramaKelime);
+    $stmt->execute();
+    $aramaSayisiSonuc = $stmt->get_result();
 
-    $aramaSayisiSorgu = "SELECT * FROM arama_sayilari WHERE kelime_id IN (SELECT k_id FROM kelime WHERE k_tanim_id = '$aramaKelime')";
-    $aramaSayisiSonuc = mysqli_query($baglanti, $aramaSayisiSorgu);
+    if ($aramaSayisiSonuc->num_rows > 0) {
 
-    if (mysqli_num_rows($aramaSayisiSonuc) > 0) {
-
-        $updateAramaSayisiSorgu = "UPDATE arama_sayilari SET adet = adet + 1 WHERE kelime_id IN (SELECT k_id FROM kelime WHERE k_tanim_id = '$aramaKelime')";
-        mysqli_query($baglanti, $updateAramaSayisiSorgu);
+        $updateAramaSayisiSorgu = "UPDATE arama_sayilari SET adet = adet + 1 WHERE kelime_id IN (SELECT k_id FROM kelime WHERE k_tanim_id = ?)";
+        $stmt = $baglanti->prepare($updateAramaSayisiSorgu);
+        $stmt->bind_param("s", $aramaKelime);
+        $stmt->execute();
     } else {
 
-        $kelimeIdSorgu = "SELECT k_id FROM kelime WHERE k_tanim_id = '$aramaKelime'";
-        $kelimeIdSonuc = mysqli_query($baglanti, $kelimeIdSorgu);
-        $kelimeId = mysqli_fetch_assoc($kelimeIdSonuc)['k_id'];
+        $kelimeIdSorgu = "SELECT k_id FROM kelime WHERE k_tanim_id = ?";
+        $stmt = $baglanti->prepare($kelimeIdSorgu);
+        $stmt->bind_param("s", $aramaKelime);
+        $stmt->execute();
+        $kelimeIdSonuc = $stmt->get_result();
 
-        $ekleAramaSayisiSorgu = "INSERT INTO arama_sayilari (kelime_id, adet) VALUES ('$kelimeId', 1)";
-        mysqli_query($baglanti, $ekleAramaSayisiSorgu);
+        if ($kelimeIdSonuc->num_rows > 0) {
+            $kelimeId = $kelimeIdSonuc->fetch_assoc()['k_id'];
+
+            $ekleAramaSayisiSorgu = "INSERT INTO arama_sayilari (kelime_id, adet) VALUES (?, 1)";
+            $stmt = $baglanti->prepare($ekleAramaSayisiSorgu);
+            $stmt->bind_param("i", $kelimeId);
+            $stmt->execute();
+        } else {
+            echo "Hedef kelime bulunamadı.";
+        }
     }
 
-    $populerKelimelerSorgu = "SELECT k_tanim_id, adet FROM arama_sayilari
-    JOIN kelime ON arama_sayilari.kelime_id = kelime.k_id
-    ORDER BY adet DESC LIMIT 5";
-
+    $populerKelimelerSorgu = "SELECT k_tanim_id, adet FROM arama_sayilari JOIN kelime ON arama_sayilari.kelime_id = kelime.k_id ORDER BY adet DESC LIMIT 5";
+    $populerKelimelerSonuc = mysqli_query($baglanti, $populerKelimelerSorgu);
 }
+
 
 ?>
 
@@ -261,4 +273,5 @@ if (isset($_GET['arama'])) {
     <p style="color: white; text-align: center; margin: 0;">Copyright 2024 © All rights Reserved by Enes Muratgül</p>
 </div>
 </body>
+
 </html>
